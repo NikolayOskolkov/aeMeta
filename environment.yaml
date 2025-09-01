@@ -1,0 +1,12 @@
+name: aeMeta
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  # core packages for workflow
+  - nextflow
+  - bowtie2
+  - samtools
+  - r-base
