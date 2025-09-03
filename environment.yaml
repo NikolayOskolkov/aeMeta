@@ -10,3 +10,8 @@ dependencies:
   - bowtie2
   - samtools
   - r-base
+  - fastp
+  - krakenuniq
+  - fastqc>=0.12.1
+  - pmdtools
+  - multiqc
