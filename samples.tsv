@@ -1,0 +1,4 @@
+sample	read1	read2
+S1	data/S1_R1.fastq.gz	data/S1_R2.fastq.gz
+S2	data/S2_R1.fastq.gz	data/S2_R2.fastq.gz
+

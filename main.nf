@@ -1,33 +1,41 @@
 #!/usr/bin/env nextflow
+nextflow.enable.dsl=2
 
-params.reads1 = ""
-params.reads2 = ""
-params.sample = "sample"
+params.samplesheet = ""
 
 process FASTP {
-    tag "$params.sample"
+    tag "$sample"
     publishDir "results", mode: "copy"
 
     input:
-    path reads1 from params.reads1
-    path reads2 from params.reads2
+    tuple val(sample), path(read1), path(read2)
 
     output:
-    path "${params.sample}.trimmed_merged.fastq.gz"
-    path "fastp_report.html"
-    path "fastp_report.json"
+    path "${sample}.trimmed_merged.fastq.gz"
+    path "${sample}.fastp_report.html"
+    path "${sample}.fastp_report.json"
 
     script:
     """
     fastp \
-        --in1 $reads1 \
-        --in2 $reads2 \
+        --in1 $read1 \
+        --in2 $read2 \
         -p -c --merge \
-        --merged_out ${params.sample}.trimmed_merged.fastq.gz \
-        -h fastp_report.html \
-        -j fastp_report.json \
-        -w 4 \
+        --merged_out ${sample}.trimmed_merged.fastq.gz \
+        -h ${sample}.fastp_report.html \
+        -j ${sample}.fastp_report.json \
+        -w 2 \
         -l 30
     """
+}
+
+workflow {
+    Channel
+        .fromPath(params.samplesheet)
+        .splitCsv(header:true, sep:'\t')
+        .map { row ->
+            tuple(row.sample, file(row.read1), file(row.read2))
+        }
+        | FASTP
 }
 
