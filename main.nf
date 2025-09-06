@@ -3,12 +3,15 @@ nextflow.enable.dsl=2
 
 params.samplesheet = ""
 
-params.db_mammalian   = "DBDIR_VERTEBRATE_MAMMALIAN"
-params.db_other       = "DBDIR_VERTEBRATE_OTHER"
-params.db_plant       = "DBDIR_PLANT"
-params.db_invertebrate= "DBDIR_INVERTEBRATE"
-params.db_microbe     = "DBDIR_MICROBE"
+params.db_mammalian    = "DBDIR_VERTEBRATE_MAMMALIAN"
+params.db_other        = "DBDIR_VERTEBRATE_OTHER"
+params.db_plant        = "DBDIR_PLANT"
+params.db_invertebrate = "DBDIR_INVERTEBRATE"
+params.db_microbe      = "DBDIR_MICROBE"
 
+// -------------------------
+// FASTP process
+// -------------------------
 process FASTP {
     tag "$sample"
     publishDir "results/${sample}/fastp", mode: "copy"
@@ -17,7 +20,10 @@ process FASTP {
     tuple val(sample), path(read1), path(read2)
 
     output:
-    tuple val(sample), path("${sample}.trimmed_merged.fastq.gz")
+    tuple val(sample), 
+          path("${sample}.trimmed_merged.fastq.gz"), 
+          path("${sample}.fastp_report.html"), 
+          path("${sample}.fastp_report.json")
 
     script:
     """
@@ -33,12 +39,15 @@ process FASTP {
     """
 }
 
+// -------------------------
+// KRAKENUNIQ process
+// -------------------------
 process KRAKENUNIQ {
     tag "$sample:$db_name"
     publishDir "results/${sample}/krakenuniq", mode: "copy"
 
     input:
-    tuple val(sample), path(trimmed), val(db_name), val(db_dir)  // <- all in one tuple
+    tuple val(sample), path(trimmed), val(db_name), val(db_dir)
 
     output:
     path "sequences_${sample}.krakenuniq_${db_name}"
@@ -56,31 +65,39 @@ process KRAKENUNIQ {
     """
 }
 
+// -------------------------
+// Workflow
+// -------------------------
 workflow {
-    // Make a channel from the samplesheet
+
+    // Read samplesheet
     samples_ch = Channel
         .fromPath(params.samplesheet)
         .splitCsv(header:true, sep:'\t')
-        .map { row ->
-            tuple(row.sample, file(row.read1), file(row.read2))
-        }
+        .map { row -> tuple(row.sample, file(row.read1), file(row.read2)) }
 
-    // Run fastp
+    // Run FASTP
     trimmed_ch = samples_ch | FASTP
 
-    // Define databases
-    dbs = [
-        [ "MAMMALIAN",   params.db_mammalian ],
-        [ "OTHER",       params.db_other ],
-        [ "PLANT",       params.db_plant ],
-        [ "INVERTEBRATE",params.db_invertebrate ],
-        [ "MICROBE",     params.db_microbe ]
+    // Define databases as a list
+    db_list = [
+        ["MAMMALIAN",    params.db_mammalian],
+        ["OTHER",        params.db_other],
+        ["PLANT",        params.db_plant],
+        ["INVERTEBRATE", params.db_invertebrate],
+        ["MICROBE",      params.db_microbe]
     ]
 
-    // Expand each sample across all databases
+    // Turn DB list into a channel
+    db_ch = Channel.fromList(db_list)
+
+    // Combine FASTP outputs with DBs using flatMap + collect
     trimmed_ch
-        .combine(Channel.fromList(dbs))
-        .map { sample, trimmed, db_info -> tuple(sample, trimmed, db_info[0], db_info[1]) }
+        .flatMap { sample, trimmed ->
+            db_list.collect { db_name, db_dir ->
+                tuple(sample, trimmed, db_name, db_dir)
+            }
+        }
         | KRAKENUNIQ
 }
 
