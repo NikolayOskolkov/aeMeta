@@ -38,9 +38,7 @@ process KRAKENUNIQ {
     publishDir "results/${sample}/krakenuniq", mode: "copy"
 
     input:
-    tuple val(sample), path(trimmed) 
-    val(db_name)
-    val(db_dir)
+    tuple val(sample), path(trimmed), val(db_name), val(db_dir)  // <- all in one tuple
 
     output:
     path "sequences_${sample}.krakenuniq_${db_name}"
