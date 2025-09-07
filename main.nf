@@ -66,20 +66,39 @@ process KRAKENUNIQ {
 }
 
 // -------------------------
+// KRAKENUNIQ_ABUNDANCE process
+// -------------------------
+process KRAKENUNIQ_ABUNDANCE {
+    tag "abundance_calc"
+    publishDir "results/abundance", mode: "copy"
+
+    input:
+    path kraken_dirs  // all directories collected
+
+    output:
+    path "abundance_matrix_eukaryotes.txt"
+
+    script:
+    """
+    Rscript /home/nikolay-oskolkov/WABI/HPGG/aeMeta/scripts/krakenuniq_abundance.R
+    """
+}
+
+// -------------------------
 // Workflow
 // -------------------------
 workflow {
 
-    // Read samplesheet
+    // 1. Read samplesheet
     samples_ch = Channel
         .fromPath(params.samplesheet)
         .splitCsv(header:true, sep:'\t')
         .map { row -> tuple(row.sample, file(row.read1), file(row.read2)) }
 
-    // Run FASTP
+    // 2. Run FASTP
     trimmed_ch = samples_ch | FASTP
 
-    // Define databases as a list
+    // 3. Define databases
     db_list = [
         ["MAMMALIAN",    params.db_mammalian],
         ["OTHER",        params.db_other],
@@ -88,13 +107,24 @@ workflow {
         ["MICROBE",      params.db_microbe]
     ]
 
-    // Combine FASTP outputs with DBs for KRAKENUNIQ
-    trimmed_ch
-        .map { sample, trimmed, html, json -> tuple(sample, trimmed) }  // only pass trimmed FASTQ downstream
+    // 4. Prepare KRAKENUNIQ inputs
+    kraken_input_ch = trimmed_ch
+        .map { sample, trimmed, html, json -> tuple(sample, trimmed) }
         .flatMap { sample, trimmed ->
             db_list.collect { db_name, db_dir ->
                 tuple(sample, trimmed, db_name, db_dir)
             }
-        } | KRAKENUNIQ
+        }
+
+    // 5. Run KRAKENUNIQ
+    kraken_input_ch | KRAKENUNIQ
+
+    // 6. Collect all KRAKENUNIQ output directories AFTER all runs complete
+    kraken_dirs_ch = Channel
+        .fromPath("results/*/krakenuniq")
+        .collect()
+
+    // 7. Run abundance calculation
+    kraken_dirs_ch | KRAKENUNIQ_ABUNDANCE
 }
 

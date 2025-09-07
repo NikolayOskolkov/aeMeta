@@ -1,8 +1,9 @@
 library("data.table")
 
-Path<-"./results/"; setwd(Path)
+Path<-"/home/nikolay-oskolkov/WABI/HPGG/aeMeta/results/"; setwd(Path)
 my_fastq<-list.dirs(path = ".", recursive = FALSE, full.names = FALSE)
-annot<-fread(paste0(Path,"../helping_files/taxDB.orig"),header=FALSE,sep="\t")
+annot <- fread("/home/nikolay-oskolkov/WABI/HPGG/aeMeta/helping_files/taxDB.orig", header=FALSE, sep="\t")
+
 
 my_abund<-list()
 for(i in 1:length(my_fastq))
