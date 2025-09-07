@@ -88,16 +88,13 @@ workflow {
         ["MICROBE",      params.db_microbe]
     ]
 
-    // Turn DB list into a channel
-    db_ch = Channel.fromList(db_list)
-
-    // Combine FASTP outputs with DBs using flatMap + collect
+    // Combine FASTP outputs with DBs for KRAKENUNIQ
     trimmed_ch
+        .map { sample, trimmed, html, json -> tuple(sample, trimmed) }  // only pass trimmed FASTQ downstream
         .flatMap { sample, trimmed ->
             db_list.collect { db_name, db_dir ->
                 tuple(sample, trimmed, db_name, db_dir)
             }
-        }
-        | KRAKENUNIQ
+        } | KRAKENUNIQ
 }
 
